@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
 import sys
 
 #################################################################################################
 
-template = {'Credit card': 0, 'Cash': 0, 'No charge': 0, 'Dispute': 0, 'Unknown': 0, 'Voided trip': 0}
-MONTHS_COUNTER = {f'{idx}': template for idx in range(1, 13)}
-MONTHS_TOTAL_SUM = {f'{idx}': template for idx in range(1, 13)}
+template = {
+    f'{idx}': {
+        'Credit card': 0,
+        'Cash': 0,
+        'No charge': 0,
+        'Dispute': 0,
+        'Unknown': 0,
+        'Voided trip': 0
+    } for idx in range(1, 13)
+}
+MONTHS_COUNTER = deepcopy(template)
+MONTHS_TOTAL_SUM = deepcopy(template)
 
 #################################################################################################
 
