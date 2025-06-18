@@ -12,6 +12,7 @@ hadoop fs -rm -r $MR_OUTPUT
 
 hadoop jar "$HADOOP_MAPRED_HOME"/hadoop-streaming.jar \
 -Dmapred.job.name='MapReduce job' \
+-Dmapreduce.map.memory.mb=1024 \
 -Dmapred.reduce.tasks=1 \
 -Dmapreduce.input.lineinputformat.linespermap=5000 \
 -inputformat org.apache.hadoop.mapred.lib.NLineInputFormat \

@@ -25,6 +25,11 @@
 ---
 ## Решение:
 
+Копируем из локального окружения на MASTERNODE задание для MapReduce:
+```sh
+make to_hadoop_cluster 
+```
+
 Подключаемся к MASTERNODE:
 ```sh
 ssh ubuntu@158.160.30.87
@@ -32,7 +37,14 @@ ssh ubuntu@158.160.30.87
 
 Создаем директорию на кластере:
 ```sh
-hadoop fs -mkdir 2020
+hadoop fs -mkdir /user/ubuntu
+hadoop fs -mkdir /user/ubuntu/2020
+```
+
+Устанавливаем утилиту awscli для работы с s3:
+```sh
+sudo apt update
+sudo apt install -y awscli
 ```
 
 Копируем данные из S3 хранилища на MASTERNODE:
@@ -42,7 +54,12 @@ aws --profile=karpov-user --endpoint-url=https://storage.yandexcloud.net s3 cp -
 
 Переносим скопированные файлы на кластер в директорию `2020`:
 ```sh
-hadoop fs -put /ubuntu/2020 2020
+hadoop fs -Ddfs.replication=2 -put 2020/* 2020/
+```
+
+Убедимся, что данные скопированы корректно на HDFS при помощи команды:
+```sh
+hadoop fs -ls 2020/
 ```
 
 Создаем директорию для сохранения результатов обработки на кластере:
@@ -50,12 +67,17 @@ hadoop fs -put /ubuntu/2020 2020
 hadoop fs -mkdir processed-data
 ```
 
-Копируем из локального окружения на MASTERNODE задание для MapReduce:
-```sh
-make to_hadoop_cluster 
-```
-
 На MASTERNODE запускаем задание для MapReduce:
 ```sh
 cd /home/ubuntu/MapReduce/ && chmod +x run.sh && ./run.sh
+```
+
+Копируем результат выполнения MapReduce в локальную директорию:
+```sh
+hdfs dfs -copyToLocal processed-data/part-00000 /home/ubuntu/MapReduce/result.csv
+```
+
+Выходим из сервера с помощью команды `exit` и локально запускаем команду для скачивания результата:
+```sh
+make copy_mapreduse_result 
 ```
