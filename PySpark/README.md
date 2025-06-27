@@ -1,4 +1,3 @@
-
 ## Основы Spark. Spark SQL.Dataframes
 
 
@@ -111,6 +110,28 @@ pip install -r requirements.txt
 ```sh
 python3.12 spark_runner.py
 ```
+
+<hr>
+
+## Задача №2
+
+Найдите топ 10 авиамаршрутов (ORIGIN_AIRPORT, DESTINATION_AIRPORT) по наибольшему числу рейсов, а так же посчитайте среднее время в полете (AIR_TIME).
+
+Требуемые поля:
+
+| **Колонка**         | **Описание**                           |
+| ------------------- | -------------------------------------- |
+| ORIGIN_AIRPORT      | Аэропорт вылета                        |
+| DESTINATION_AIRPORT | Аэропорт прибытия                      |
+| tail_count          | Число рейсов по маршруту (TAIL_NUMBER) |
+| avg_air_time        | среднее время в небе по маршруту       |
+
+Пример вывода:
+
+| ORIGIN_AIRPORT | DESTINATION_AIRPORT | tail_count | avg_air_time      |
+| -------------- | ------------------- | ---------- | ----------------- |
+| LAX            | SFO                 | 693        | 54.8698224852071  |
+| SFO            | LAX                 | 646        | 55.98098256735341 |
 
 <hr>
 

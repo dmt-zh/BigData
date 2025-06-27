@@ -52,7 +52,30 @@ class PySparkProcessor:
     ################################################################################################################
 
     def _run_task_two(self, session: SparkSession) -> None:
-        pass
+        """Получение сводной таблицы по топ 10 авиамаршрутов по
+        наибольшему числу рейсов, а так же среднее время в полете."""
+
+        flights_df = session.read.parquet(self._input)
+        agg_table = flights_df \
+            .groupBy(
+                flights_df['ORIGIN_AIRPORT'],
+                flights_df['DESTINATION_AIRPORT'],
+                ) \
+            .agg(
+                psf.count(flights_df['TAIL_NUMBER']).alias('tail_count'),
+                psf.avg(flights_df['AIR_TIME']).alias('avg_air_time'),
+                ) \
+            .select(
+                psf.col('ORIGIN_AIRPORT'),
+                psf.col('DESTINATION_AIRPORT'),
+                psf.col('tail_count'),
+                psf.col('avg_air_time'),
+                ) \
+            .orderBy(psf.col('tail_count').desc()) \
+            .limit(10)
+        
+        agg_table.show()
+        agg_table.write.mode('overwrite').parquet(f'{self._output}')
 
     ################################################################################################################
 
@@ -84,7 +107,7 @@ def main() -> None:
     parser.add_argument(
         '--task',
         type=str,
-        default='task_1',
+        default='task_2',
         choices=['task_1', 'task_3', 'task_3', 'task_4', 'task_5'],
         help='Choose task to run.'
     )
