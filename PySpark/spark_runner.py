@@ -1,6 +1,8 @@
+#!/usr/bin/env python3.12
+
 from argparse import ArgumentParser
-from pyspark.sql import SparkSession
-from pyspark.sql import functions as psf
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as sf
 from pathlib import Path
 
 
@@ -28,54 +30,64 @@ class PySparkProcessor:
         self._run_task = {
             'task_1': self._run_task_one,
             'task_2': self._run_task_two,
+            'task_3': self._run_task_three,
         }
 
     ################################################################################################################
 
-    def _run_task_one(self, session: SparkSession) -> None:
+    def _run_task_one(self, spark_df: DataFrame, session: SparkSession) -> DataFrame:
         """Получение сводной таблицы по топ 10 рейсов по коду рейса."""
 
-        flights_df = session.read.parquet(self._input)
-        agg_table = flights_df \
-            .where(flights_df['TAIL_NUMBER'].isNotNull()) \
-            .groupBy(flights_df['TAIL_NUMBER']) \
-            .agg(psf.count(flights_df['FLIGHT_NUMBER']).alias('count')) \
-            .select(
-                psf.col('TAIL_NUMBER'),
-                psf.col('count'),
-                ) \
-            .orderBy(psf.col('count').desc()) \
+        agg_table = spark_df \
+            .where(spark_df['TAIL_NUMBER'].isNotNull()) \
+            .groupBy(spark_df['TAIL_NUMBER']) \
+            .agg(sf.count(spark_df['FLIGHT_NUMBER']).alias('count')) \
+            .select(['TAIL_NUMBER', 'count']) \
+            .orderBy(sf.col('count').desc()) \
             .limit(10)
 
-        agg_table.write.mode('overwrite').parquet(f'{str(self._output)}')
+        return agg_table
 
     ################################################################################################################
 
-    def _run_task_two(self, session: SparkSession) -> None:
+    def _run_task_two(self, spark_df: DataFrame, session: SparkSession) -> DataFrame:
         """Получение сводной таблицы по топ 10 авиамаршрутов по
         наибольшему числу рейсов, а так же среднее время в полете."""
 
-        flights_df = session.read.parquet(self._input)
-        agg_table = flights_df \
+        agg_table = spark_df \
             .groupBy(
-                flights_df['ORIGIN_AIRPORT'],
-                flights_df['DESTINATION_AIRPORT'],
+                spark_df['ORIGIN_AIRPORT'],
+                spark_df['DESTINATION_AIRPORT'],
                 ) \
             .agg(
-                psf.count(flights_df['TAIL_NUMBER']).alias('tail_count'),
-                psf.avg(flights_df['AIR_TIME']).alias('avg_air_time'),
+                sf.count(spark_df['TAIL_NUMBER']).alias('tail_count'),
+                sf.avg(spark_df['AIR_TIME']).alias('avg_air_time'),
                 ) \
-            .select(
-                psf.col('ORIGIN_AIRPORT'),
-                psf.col('DESTINATION_AIRPORT'),
-                psf.col('tail_count'),
-                psf.col('avg_air_time'),
-                ) \
-            .orderBy(psf.col('tail_count').desc()) \
+            .select(['ORIGIN_AIRPORT', 'DESTINATION_AIRPORT', 'tail_count', 'avg_air_time']) \
+            .orderBy(sf.col('tail_count').desc()) \
             .limit(10)
-        
-        agg_table.show()
-        agg_table.write.mode('overwrite').parquet(f'{self._output}')
+
+        return agg_table
+    
+    ################################################################################################################
+
+    def _run_task_three(self, spark_df: DataFrame, session: SparkSession) -> DataFrame:
+        """Получение сводной таблицы по аэропортам, у которых
+        самые большие проблемы с задержкой на вылет рейса."""
+
+        agg_table = spark_df \
+            .groupBy(spark_df['ORIGIN_AIRPORT']) \
+            .agg(
+                sf.avg(spark_df['DEPARTURE_DELAY']).alias('avg_delay'),
+                sf.min(spark_df['DEPARTURE_DELAY']).alias('min_delay'),
+                sf.max(spark_df['DEPARTURE_DELAY']).alias('max_delay'),
+                sf.corr(spark_df['DEPARTURE_DELAY'], spark_df['DAY_OF_WEEK']).alias('corr_delay2day_of_week')
+                ) \
+            .select(['ORIGIN_AIRPORT','avg_delay','min_delay','max_delay','corr_delay2day_of_week']) \
+            .where(sf.col('max_delay') > 1000) \
+            .orderBy(sf.col('max_delay').desc())
+
+        return agg_table
 
     ################################################################################################################
 
@@ -83,8 +95,10 @@ class PySparkProcessor:
         """Запуск задачи на выполнение."""
 
         spark_session = _create_spark_session()
+        input_dataframe = spark_session.read.parquet(self._input)
         task_runner = self._run_task.get(self._task)
-        task_runner(spark_session)
+        output_dataframe = task_runner(input_dataframe, spark_session)
+        output_dataframe.write.mode('overwrite').parquet(f'{self._output}')
 
 ####################################################################################################################
 
@@ -107,7 +121,7 @@ def main() -> None:
     parser.add_argument(
         '--task',
         type=str,
-        default='task_2',
+        default='task_3',
         choices=['task_1', 'task_3', 'task_3', 'task_4', 'task_5'],
         help='Choose task to run.'
     )
