@@ -20,17 +20,18 @@ class PySparkProcessor:
 
     def __init__(
         self,
-        input_file_path: Path,
+        input_files_path: list[Path],
         output_path: Path,
         task: str,
     ) -> None:
-        self._input = str(input_file_path)
+        self._input = tuple(map(str, input_files_path))
         self._output = str(output_path)
         self._task = task
         self._run_task = {
             'task_1': self._run_task_one,
             'task_2': self._run_task_two,
             'task_3': self._run_task_three,
+            'task_4': self._run_task_four,
         }
 
     ################################################################################################################
@@ -89,15 +90,68 @@ class PySparkProcessor:
 
         return agg_table
 
+    ###############################################################################################################
+
+    def _run_task_four(
+        self,
+        flights_df: DataFrame,
+        airlines_df: DataFrame,
+        airports_df: DataFrame,
+        session: SparkSession
+    ) -> DataFrame:
+        """Формирование таблицы для дашборда с отображением выполненных рейсов."""
+
+        al2f_df = flights_df \
+            .join(airlines_df, flights_df['AIRLINE'] == airlines_df['IATA_CODE'], how='left') \
+            .drop(flights_df['AIRLINE']) \
+            .select(['AIRLINE', 'TAIL_NUMBER', 'ORIGIN_AIRPORT', 'DESTINATION_AIRPORT']) \
+            .withColumnRenamed('AIRLINE', 'AIRLINE_NAME')
+
+        ap2al_df = al2f_df \
+            .join(airports_df, al2f_df['ORIGIN_AIRPORT'] == airports_df['IATA_CODE'], how='inner') \
+            .select(['AIRLINE_NAME', 'TAIL_NUMBER', 'COUNTRY', 'AIRPORT', 'LATITUDE', 'LONGITUDE', 'DESTINATION_AIRPORT']) \
+            .withColumnsRenamed(
+                {
+                    'COUNTRY': 'ORIGIN_COUNTRY',
+                    'AIRPORT': 'ORIGIN_AIRPORT_NAME', 
+                    'LATITUDE': 'ORIGIN_LATITUDE',
+                    'LONGITUDE': 'ORIGIN_LONGITUDE',
+                }
+            )
+
+        joined_table = ap2al_df \
+            .join(airports_df, ap2al_df['DESTINATION_AIRPORT'] == airports_df['IATA_CODE'], how='inner') \
+            .select(
+                [
+                    'AIRLINE_NAME', 'TAIL_NUMBER', 'ORIGIN_COUNTRY', 'ORIGIN_AIRPORT_NAME',
+                    'ORIGIN_LATITUDE', 'ORIGIN_LONGITUDE', 'COUNTRY', 'AIRPORT', 'LATITUDE', 'LONGITUDE']
+            ) \
+            .withColumnsRenamed(
+                {
+                    'COUNTRY': 'DESTINATION_COUNTRY',
+                    'AIRPORT': 'DESTINATION_AIRPORT_NAME', 
+                    'LATITUDE': 'DESTINATION_LATITUDE',
+                    'LONGITUDE': 'DESTINATION_LONGITUDE',
+                }
+            )
+
+        return joined_table
+
     ################################################################################################################
 
     def run(self) -> None:
         """Запуск задачи на выполнение."""
 
-        spark_session = _create_spark_session()
-        input_dataframe = spark_session.read.parquet(self._input)
         task_runner = self._run_task.get(self._task)
-        output_dataframe = task_runner(input_dataframe, spark_session)
+        spark_session = _create_spark_session()
+        if self._task in ('task_4', 'task_5'):
+            flights_df = spark_session.read.parquet(str(self._input[0]))
+            airlines_df = spark_session.read.parquet(str(self._input[1]))
+            airports_df = spark_session.read.parquet(str(self._input[-1]))
+            output_dataframe = task_runner(flights_df, airlines_df, airports_df, spark_session)
+        else:
+            input_dataframe = spark_session.read.parquet(self._input[0])
+            output_dataframe = task_runner(input_dataframe, spark_session)
         output_dataframe.write.mode('overwrite').parquet(f'{self._output}')
 
 ####################################################################################################################
@@ -113,6 +167,18 @@ def main() -> None:
         help='Please set "flights" dataset path with "parquet" extension.',
     )
     parser.add_argument(
+        '--airlines_path',
+        type=str,
+        default='airlines.parquet',
+        help='Please set "airlines" dataset path with "parquet" extension.',
+    )
+    parser.add_argument(
+        '--airports_path',
+        type=str,
+        default='airports.parquet',
+        help='Please set "airports" dataset path with "parquet" extension.',
+    )
+    parser.add_argument(
         '--result_path',
         type=str,
         default='result',
@@ -121,13 +187,18 @@ def main() -> None:
     parser.add_argument(
         '--task',
         type=str,
-        default='task_3',
+        default='task_4',
         choices=['task_1', 'task_3', 'task_3', 'task_4', 'task_5'],
         help='Choose task to run.'
     )
     parsed_arguments = parser.parse_args()
+    input_files = (
+        Path(parsed_arguments.flights_path).resolve(),
+        Path(parsed_arguments.airlines_path).resolve(),
+        Path(parsed_arguments.airports_path).resolve(),
+    )
     pyspark_job = PySparkProcessor(
-        input_file_path=Path(parsed_arguments.flights_path).resolve(),
+        input_files_path=input_files,
         output_path=Path(parsed_arguments.result_path).resolve(),
         task=parsed_arguments.task
     )

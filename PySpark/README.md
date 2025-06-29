@@ -150,3 +150,22 @@ python3.12 spark_runner.py
 | corr_delay2day_of_week | Корреляция между временем задержки и днем недели |
 <hr>
 
+## Задача №4
+
+Для дашборда с отображением выполненных рейсов требуется собрать таблицу на основе наших данных.  Никакой фильтрации данных не требуется.
+
+Требуемые поля:
+
+| **Поле**                 | **Описание**                                             |
+| ------------------------ | -------------------------------------------------------- |
+| AIRLINE_NAME             | Название авиалинии (airlines.AIRLINE)                    |
+| TAIL_NUMBER              | Номер рейса (flights.TAIL_NUMBER)                        |
+| ORIGIN_COUNTRY           | Страна отправления (airports.COUNTRY)                    |
+| ORIGIN_AIRPORT_NAME      | Полное название аэропорта отправления (airports.AIRPORT) |
+| ORIGIN_LATITUDE          | Широта аэропорта отправления (airports.LATITUDE)         |
+| ORIGIN_LONGITUDE         | Долгота аэропорта отправления (airports.LONGITUDE)       |
+| DESTINATION_COUNTRY      | Страна прибытия (airports.COUNTRY)                       |
+| DESTINATION_AIRPORT_NAME | Полное название аэропорта прибытия (airports.AIRPORT)    |
+| DESTINATION_LATITUDE     | Широта аэропорта прибытия (airports.LATITUDE)            |
+| DESTINATION_LONGITUDE    | Долгота аэропорта прибытия (airports.LONGITUDE)          |
+<hr>
