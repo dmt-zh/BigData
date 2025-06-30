@@ -169,3 +169,20 @@ python3.12 spark_runner.py
 | DESTINATION_LATITUDE     | Широта аэропорта прибытия (airports.LATITUDE)            |
 | DESTINATION_LONGITUDE    | Долгота аэропорта прибытия (airports.LONGITUDE)          |
 <hr>
+
+## Задача №5
+
+Отдел аналитики интересует статистика по компаниям о возникших проблемах. Пришла задача построить сводную таблицу о всех авиакомпаниях содержащую следующие данные:
+
+| **Колонка**          | **Описание**                                                |
+| -------------------- | ----------------------------------------------------------- |
+| AIRLINE_NAME         | название авиалинии [airlines.AIRLINE]                       |
+| correct_count        | число выполненных рейсов без задержек                       |
+| diverted_count       | число рейсов выполненных с задержкой                        |
+| cancelled_count      | число отмененных рейсов                                     |
+| avg_distance         | средняя дистанция рейсов                                    |
+| avg_air_time         | среднее время в небе                                        |
+| airline_issue_count  | число отмен из-за проблем с самолетом [CANCELLATION_REASON] |
+| weather_issue_count  | число отмен из-за погодных условий [CANCELLATION_REASON]    |
+| nas_issue_count      | число отмен из-за проблем NAS [CANCELLATION_REASON]         |
+| security_issue_count | число отмен из-за службы безопасности [CANCELLATION_REASON] |

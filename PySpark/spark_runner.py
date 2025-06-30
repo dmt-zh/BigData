@@ -32,6 +32,7 @@ class PySparkProcessor:
             'task_2': self._run_task_two,
             'task_3': self._run_task_three,
             'task_4': self._run_task_four,
+            'task_5': self._run_task_five,
         }
 
     ################################################################################################################
@@ -139,16 +140,60 @@ class PySparkProcessor:
 
     ################################################################################################################
 
+    def _run_task_five(
+        self,
+        flights_df: DataFrame,
+        airlines_df: DataFrame,
+        session: SparkSession
+    ) -> DataFrame:
+        """Формирование таблицы со статистикой по компаниям о возникших проблемах."""
+
+        joined_table = flights_df \
+            .join(airlines_df, flights_df['AIRLINE'] == airlines_df['IATA_CODE'], how='left') \
+            .drop(flights_df['AIRLINE']) \
+            .withColumnRenamed('AIRLINE', 'AIRLINE_NAME') \
+            .select(['AIRLINE_NAME', 'DIVERTED', 'CANCELLED', 'CANCELLATION_REASON', 'DISTANCE', 'AIR_TIME'])
+
+        augmented_table = joined_table \
+            .withColumn('CORRECT', sf.when(joined_table['CANCELLED'] == 1, 0).when(joined_table['DIVERTED'] == 1, 0).otherwise(1)) \
+            .withColumn('AIRLINE_ISSUE', sf.when(joined_table['CANCELLATION_REASON'] == 'A', 1).otherwise(0)) \
+            .withColumn('WEATHER_ISSUE', sf.when(joined_table['CANCELLATION_REASON'] == 'B', 1).otherwise(0)) \
+            .withColumn('SYSTEM_ISSUE', sf.when(joined_table['CANCELLATION_REASON'] == 'C', 1).otherwise(0)) \
+            .withColumn('SECYRITY_ISSUE', sf.when(joined_table['CANCELLATION_REASON'] == 'D', 1).otherwise(0))
+
+        stats_df = augmented_table \
+            .groupBy(augmented_table['AIRLINE_NAME']) \
+            .agg(
+                sf.sum(augmented_table['CORRECT']).alias('correct_count'),
+                sf.sum(augmented_table['DIVERTED']).alias('diverted_count'),
+                sf.sum(augmented_table['CANCELLED']).alias('cancelled_count'),
+                sf.avg(augmented_table['DISTANCE']).alias('avg_distance'),
+                sf.avg(augmented_table['AIR_TIME']).alias('avg_air_time'),
+                sf.sum(augmented_table['AIRLINE_ISSUE']).alias('airline_issue_count'),
+                sf.sum(augmented_table['WEATHER_ISSUE']).alias('weather_issue_count'),
+                sf.sum(augmented_table['SYSTEM_ISSUE']).alias('nas_issue_count'),
+                sf.sum(augmented_table['SECYRITY_ISSUE']).alias('security_issue_count'),
+                ) \
+            .orderBy(sf.col('AIRLINE_NAME'))
+
+        return stats_df
+
+    ################################################################################################################
+
     def run(self) -> None:
         """Запуск задачи на выполнение."""
 
         task_runner = self._run_task.get(self._task)
         spark_session = _create_spark_session()
-        if self._task in ('task_4', 'task_5'):
+        if self._task == 'task_4':
             flights_df = spark_session.read.parquet(str(self._input[0]))
             airlines_df = spark_session.read.parquet(str(self._input[1]))
             airports_df = spark_session.read.parquet(str(self._input[-1]))
             output_dataframe = task_runner(flights_df, airlines_df, airports_df, spark_session)
+        if self._task == 'task_5':
+            flights_df = spark_session.read.parquet(str(self._input[0]))
+            airlines_df = spark_session.read.parquet(str(self._input[1]))
+            output_dataframe = task_runner(flights_df, airlines_df, spark_session)
         else:
             input_dataframe = spark_session.read.parquet(self._input[0])
             output_dataframe = task_runner(input_dataframe, spark_session)
@@ -187,7 +232,7 @@ def main() -> None:
     parser.add_argument(
         '--task',
         type=str,
-        default='task_4',
+        default='task_5',
         choices=['task_1', 'task_3', 'task_3', 'task_4', 'task_5'],
         help='Choose task to run.'
     )
