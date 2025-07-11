@@ -9,4 +9,4 @@ Mеханизмы распределённого хранения больших
 - Реляционные и MPP СУБД
 - Автоматизация ETL-процессов
 - Big Data: [Hadoop](https://github.com/dmt-zh/BigData/tree/main/Hadoop), [PySpark](https://github.com/dmt-zh/BigData/tree/main/PySpark)
-- Data Pipeline: Data Lake (S3), DWH (Greenplum), Airflow, Spark (Kubernetes), GitLab
+- [Data Pipeline](https://github.com/dmt-zh/BigData/tree/main/DataPipeline): Data Lake (S3), DWH (Greenplum), Airflow, Spark (Kubernetes), GitLab
