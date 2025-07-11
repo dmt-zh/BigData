@@ -12,6 +12,19 @@
 
 <hr>
 
+## Итоговый вид DAG
+Ниже представлен итоговый вид DAG'a, который у нас получиться.
+
+Понадобятся следующие операторы и сенсоры:
+- `airflow.operators.empty.EmptyOperator` - для объединения задач
+- `airflow.providers.cncf.kubernetes.operators.spark_kubernetes.SparkKubernetesOperator` - для отправки Spark задач на кластер
+- `airflow.providers.cncf.kubernetes.sensors.spark_kubernetes.SparkKubernetesSensor` - для отслеживания статуса Spark задач
+- `airflow.providers.common.sql.operators.sql.SQLExecuteQueryOperator` - для выполнения запросов к Greenplum
+
+<img src="https://github.com/dmt-zh/BigData/blob/main/DataPipeline/static/full_pipeline.jpg"/>
+
+<hr>
+
 ## Описание данных
 
 В проекте будyт использованы данные, предоставляемые из [Теста TPC-H](https://www.tpc.org/tpch/).
@@ -134,3 +147,4 @@ TPC-H - это стандартный бенчмарк для тестирова
 | mean_supplycost  | FLOAT8       | медианная стоимость поставки (PS_SUPPLYCOST)    |
 | min_supplycost   | FLOAT8       | минимальная стоимость поставки (PS_SUPPLYCOST)  |
 | max_supplycost   | FLOAT8       | максимальная стоимость поставки (PS_SUPPLYCOST) |
+
