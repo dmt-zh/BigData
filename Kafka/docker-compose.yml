@@ -1,0 +1,68 @@
+volumes:
+  kafka-broker-data:
+    driver: local
+
+networks:
+  kafka-net:
+    driver: bridge
+
+services:
+   kafka-broker:
+    image: bitnami/kafka:latest
+    container_name: kafka-server
+    ports:
+       - 9092:9092
+       - 29092:29092
+    networks:
+      - kafka-net
+    environment:
+      # Core configuration
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_KRAFT_CLUSTER_ID: FhYL_07LSoSw4dQhlXuh1Q
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka-server:9093
+      KAFKA_ENABLE_KRAFT: 'yes'
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+
+      # Listeners configuration
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-server:9092,EXTERNAL://localhost:29092
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_CFG_SASL_ENABLED_MECHANISMS: PLAIN
+    volumes:
+      - kafka-broker-data:/kafka-server
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server kafka-server:9092 --list --command-config /bitnami/kafka/config/producer.properties"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+   spark-master:
+    image: bitnami/spark:latest
+    command: bin/spark-class org.apache.spark.deploy.master.Master
+    ports:
+      - 9090:8080
+      - 7077:7077
+    networks:
+      - kafka-net
+
+
+   spark-worker:
+    image: bitnami/spark:latest
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark:7077
+    depends_on:
+      - spark-master
+    networks:
+      - kafka-net
+    environment:
+      SPARK_MODE: worker
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 2g
+      SPARK_MASTER_URL: spark://spark:7077
