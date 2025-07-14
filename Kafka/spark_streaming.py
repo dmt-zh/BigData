@@ -6,6 +6,9 @@ from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import to_json, struct
 from pyspark.sql.types import StructType, StructField, StringType, TimestampType, IntegerType, DoubleType
 
+import os
+os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-streaming-kafka-0-10_2.12:3.5.0,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 pyspark-shell'
+
 #################################################################################################
 
 trips_schema = StructType(
@@ -48,23 +51,28 @@ def _spark_connection() -> SparkSession:
 
     session = SparkSession \
         .builder \
-        .master('spark://localhost:7077') \
         .appName('StreamingPipeline') \
-        .config('spark.jars.packages', 'org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3,org.scala-lang:scala-library:2.12.18') \
+        .config('spark.jars.packages', 'org.apache.spark:spark-sql-kafka-0-10_2.12:3.2.0') \
         .getOrCreate()
 
     return session
 
 #################################################################################################
 
-def _foreach_batch_function(dataframe: DataFrame) -> None:
+def create_dict(spark: SparkSession, header: list[str], data: list):
+    """создание словаря"""
+    df = spark.createDataFrame(data=data, schema=header)
+    return df
+
+#################################################################################################
+
+def _foreach_batch_function(dataframe: DataFrame, *args) -> None:
     dataframe.write.mode('append').json('output_report')
 
 #################################################################################################
 
 def main() -> None:
 
-    json_options = {'timestampFormat': "yyyy-MM-dd'T'HH:mm:ss.sss'Z'"}
     fields = list(map(lambda x: f'json_message.{x.name}', trips_schema.fields))
     spark_session = _spark_connection()
 
@@ -75,7 +83,7 @@ def main() -> None:
         .option('subscribe', 'taxi') \
         .option('startingOffsets', 'latest') \
         .load() \
-        .select(sf.from_json(sf.col('value').cast('string'), trips_schema, jsonOjson_optionsptions).alias('json_message')) \
+        .select(sf.from_json(sf.col('value').cast('string'), trips_schema).alias('json_message')) \
         .select(fields)
 
     datamart = stream_df \
@@ -83,17 +91,20 @@ def main() -> None:
         .agg(sf.count(sf.col('*')).alias('cnt')) \
         .join(other=create_dict(spark_session, dim_columns, payment_rows), on=sf.col('payment_type') == sf.col('id'), how='inner') \
         .select(sf.col('name'), sf.col('cnt'), sf.col('dt')) \
-        .orderBy(sf.col('name'), sf.col('dt')) \
         .select(to_json(struct('name', 'cnt', 'dt')).alias('value'))
 
-
-    writer = datamart \
+    writer = datamart.selectExpr("CAST(value AS STRING)") \
         .writeStream \
         .trigger(processingTime='10 seconds') \
-        .format('console') \
-        .outputMode('complete') \
-        .option('truncate', 'false') \
+        .format('kafka') \
+        .option('kafka.bootstrap.servers', 'localhost:29092') \
+        .option('topic', 'report') \
+        .option('checkpointLocation', 'checkpoints/aggregated') \
+        .outputMode('update') \
         .start()
+
+    writer.awaitTermination()
+
 
 #################################################################################################
 
