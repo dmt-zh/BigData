@@ -22,6 +22,7 @@ config_log = {
 }
 logging.basicConfig(**config_log, datefmt='%Y-%m-%d %H:%M:%S')
 
+
 #################################################################################################
 
 S3_BUCKET = environ.get('S3_BUCKET')
@@ -40,6 +41,8 @@ S3 = S3Session().client(
 #################################################################################################
 
 def _iter_s3_response(boto_response: StreamingBody) -> str:
+    """Итерирование по данным читаемых из S3."""
+
     boto_body = boto_response.get('Body', False)
     if boto_body:
         for line in boto_body.iter_lines():
@@ -48,6 +51,8 @@ def _iter_s3_response(boto_response: StreamingBody) -> str:
 #################################################################################################
 
 def read_data_from_s3(s3: BaseClient, bucket: str, dataset: str | None = None):
+    """Главная функция чтения данных из S3."""
+
     if dataset:
         response = s3.get_object(Bucket=bucket, Key=dataset)
         yield from _iter_s3_response(response)
@@ -59,6 +64,8 @@ def read_data_from_s3(s3: BaseClient, bucket: str, dataset: str | None = None):
 #################################################################################################
 
 def _create_data_fields(fields: Sequence[str]) -> Mapping[str, int | float]:
+    """Приведение полей данных к нужному типу."""
+
     return {
         'vendor_id': int(fields[0]),
         'tpep_pickup_datetime': fields[1],
@@ -82,27 +89,33 @@ def _create_data_fields(fields: Sequence[str]) -> Mapping[str, int | float]:
 
 #################################################################################################
 
-def produce() -> None:
+def main() -> None:
+    """Главная функция запуска производителя данных."""
+
     line_counter = 0
     raw_data = read_data_from_s3(S3, S3_BUCKET, 'taxi_data/yellow_tripdata_2020-04.csv')
     kafka_producer = KafkaProducer(
         bootstrap_servers=BOOTSTRAP_SERVER,
         value_serializer=lambda x: dumps(x).encode('utf8')
     )
-
+    logging.info(f'==> Started to produce data to Kafka Server')
     for line in raw_data:
         sleep(uniform(0.02, 0.05))
         txt_fields = line.strip().split(',')
         try:
             valid_fields = _create_data_fields(txt_fields)
-            kafka_producer.send(topic=TOPIC_NAME, value=valid_fields)
-            logging.info(f'Lines {count} sent; {valid_fields.get("trip_distance")}')
             line_counter += 1
-        except:
+            kafka_producer.send(topic=TOPIC_NAME, value=valid_fields)
+            logging.info(f'Lines {line_counter} sent')
+        except Exception as err:
+            print(err)
             continue
-    logging.info(f'JOB IS DONE!!!!!!!!!!')
+    logging.info(f'==> Streaming job is done!')
 
-try:
-    produce()
-except Exception as e:
-    print(e)
+#################################################################################################
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as err:
+        logging.info(err)

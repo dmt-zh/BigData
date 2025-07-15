@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+###############################################################################
+
+# Обновление системы и установка библиотек
 sudo apt-get update -y; \
 sudo apt-get install -y -q \
     wget \
@@ -12,9 +15,13 @@ sudo apt-get install -y -q \
     lsb-release \
     kafkacat
 
-sudo mkdir -p /etc/apt/keyrings;
+###############################################################################
 
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg;
+# Установка docker и docker-compose
+for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt-get remove $pkg; done
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 
 echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
@@ -22,13 +29,16 @@ echo \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 sudo apt-get update -y;
-sudo apt-get install docker-ce docker-ce-cli containerd.io -y -q;
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.6.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose;
 
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y;
+
+###############################################################################
+
+# Запуск docker не из-под суперпользователя
 sudo groupadd docker;
 sudo usermod -aG docker $USER;
 
-python3.12 -m venv env;
-source env/bin/activate;
-python3.12 -m pip install -r requirements.txt;
-deactivate;
+###############################################################################
+
+ chmod +x run.sh 
+ 

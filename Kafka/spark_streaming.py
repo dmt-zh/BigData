@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.dataframe import DataFrame
@@ -8,6 +9,14 @@ from pyspark.sql.types import StructType, StructField, StringType, TimestampType
 
 import os
 os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-streaming-kafka-0-10_2.12:3.5.0,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 pyspark-shell'
+
+#################################################################################################
+
+config_log = {
+    'level': logging.INFO,
+    'format': "%(asctime)s | %(message)s"
+}
+logging.basicConfig(**config_log, datefmt='%Y-%m-%d %H:%M:%S')
 
 #################################################################################################
 
@@ -59,19 +68,23 @@ def _spark_connection() -> SparkSession:
 
 #################################################################################################
 
-def create_dict(spark: SparkSession, header: list[str], data: list):
-    """создание словаря"""
+def create_dict(spark: SparkSession, header: list[str], data: list) -> DataFrame:
+    """Создание словаря."""
+
     df = spark.createDataFrame(data=data, schema=header)
     return df
 
 #################################################################################################
 
 def _foreach_batch_function(dataframe: DataFrame, *args) -> None:
+    """Функция записи батчей датафрейма."""
+
     dataframe.write.mode('append').json('output_report')
 
 #################################################################################################
 
 def main() -> None:
+    """Главная функция запуска потоковой обработки."""
 
     fields = list(map(lambda x: f'json_message.{x.name}', trips_schema.fields))
     spark_session = _spark_connection()
@@ -82,6 +95,7 @@ def main() -> None:
         .option('kafka.bootstrap.servers', 'localhost:29092') \
         .option('subscribe', 'taxi') \
         .option('startingOffsets', 'latest') \
+        .option('failOnDataLoss', 'false') \
         .load() \
         .select(sf.from_json(sf.col('value').cast('string'), trips_schema).alias('json_message')) \
         .select(fields)
@@ -105,20 +119,10 @@ def main() -> None:
 
     writer.awaitTermination()
 
-
 #################################################################################################
 
 if __name__ == '__main__':
     try:
         main()
     except Exception as err:
-        print(err)
-
-
-
-
-
-
-
-
-
+        logging.info(err)
