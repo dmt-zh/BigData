@@ -1,0 +1,15 @@
+[project]
+name = "ml-pipeline"
+version = "0.1.0"
+description = "MLflow pipeline"
+readme = "README.md"
+requires-python = ">=3.12.9,<3.13"
+dependencies = [
+    "boto3>=1.39.12",
+    "mlflow[auth]>=3.1.4",
+    "psycopg2-binary>=2.9.10",
+    "psycopg2>=2.9.10",
+    "python-dotenv>=1.1.1",
+    "flask-wtf>=1.2.2",
+    "pip>=25.1.1",
+]

@@ -1,0 +1,98 @@
+services:
+  db:
+    restart: always
+    image: postgres:17
+    container_name: mlflow-db
+    ports:
+      - 5423:5432
+    networks:
+      - backend
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DATABASE: ${POSTGRES_DB}
+    volumes:
+      - ./data/pg_data:/var/lib/postgresql/data/
+
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-p', '5432', '-U', '${POSTGRES_USER}']
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  s3:
+    restart: always
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    container_name: s3-storage
+    ports:
+      - 9000:9000
+      - 9001:9001
+    networks:
+      - frontend
+      - backend
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    command: server /data --console-address ':9001' --address ':9000'
+    volumes:
+      - ./data/s3-storage:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  s3_setup:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    container_name: s3_setup
+    depends_on:
+      - s3
+    networks:
+      - backend
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    entrypoint: ['/bin/sh', '-c']
+    command: 
+      - |
+        mc alias set s3_store http://s3:9000 ${MINIO_USER} ${MINIO_PASSWORD}
+        mc admin user svcacct add --access-key ${AWS_ACCESS_KEY_ID} --secret-key ${AWS_SECRET_ACCESS_KEY} s3_store ${MINIO_USER}
+        mc mb s3_store/${S3_BUCKET_NAME}
+
+  mlflow:
+    restart: always
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: mlflow-server
+    container_name: mlflow-server
+    depends_on:
+      - db
+    ports:
+      - 5050:5000
+    networks:
+      - backend
+    environment:
+      MLFLOW_FLASK_SERVER_SECRET_KEY: ${MLFLOW_FLASK_SERVER_SECRET_KEY}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      MLFLOW_S3_ENDPOINT_URL: http://s3:9000
+      MLFLOW_S3_IGNORE_TLS: 'True'
+    command: >
+      uv run mlflow server
+      --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      --host 0.0.0.0
+      --serve-artifacts
+      --default-artifact-root s3://${S3_BUCKET_NAME}
+      --app-name basic-auth
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5000/']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
