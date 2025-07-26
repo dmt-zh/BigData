@@ -11,3 +11,6 @@ Mеханизмы распределённого хранения больших
 - Big Data: [Hadoop](https://github.com/dmt-zh/BigData/tree/main/Hadoop), [PySpark](https://github.com/dmt-zh/BigData/tree/main/PySpark)
 - [Kafkа. Spark streaming](https://github.com/dmt-zh/BigData/tree/main/Kafka)
 - [Data Pipeline](https://github.com/dmt-zh/BigData/tree/main/DataPipeline): Data Lake (S3), DWH (Greenplum), Airflow, Spark (Kubernetes), GitLab
+- [MLflow Tracking Server](https://github.com/dmt-zh/BigData/tree/main/MLflow): MinIO (S3), PostgreSQL, MLflow
+
+
