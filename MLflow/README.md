@@ -93,7 +93,7 @@ curl -X PATCH "http://89.169.179.173:5050/api/2.0/mlflow/users/update-password" 
   -d '{"username": "admin", "password": "Ve-MAKo2vmWCI-LtR02"}'
 ```
 
-<img src="https://github.com/dmt-zh/BigData/blob/main/MLflow/static/mlflow_auth.jpg"/>
+<img src="https://github.com/dmt-zh/BigData/blob/main/MLflow/static/mlflow_auth.jpg" width="630" height="630"/>
 
 ### Запуск трекинга ML экспериментов
 
